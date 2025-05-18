@@ -1,12 +1,25 @@
---- @class detekt.config
---- @field config_names? string[] Defaults to `{ "detekt.yaml", "detekt.yml" }`
---- @field baseline_names? string[] Defaults to nil
---- @field log_level? integer Default is `vim.log.levels.INFO`
---- @field build_upon_default_config? boolean Default is true
---- @field file_pattern? string|string[] Default is `"*.kt"`
---- @field detekt_exec string? Default is `"dekekt"` can be used to overwrite the executable used
+--- @class (exact)detekt.config
+--- @field config_names? string[]
+--- Defaults to `{ "detekt.yaml", "detekt.yml" }`. Will search from the current
+--- directory upwards until a file with one of these names is found. Will stop
+--- at the first hit and use that file as the config.
+--- @field baseline_names? string[]
+--- Defaults to nil, when set a search will be done from the current buffer
+--- folder upwards until a file with this name is found. The first hit is used
+--- as the baseline file for detekt.
+--- @field log_level? integer
+--- Default is `vim.log.levels.INFO`. Determines the log level and can be set
+--- using one of the `vim.log.levels.*` values. Use `vim.log.levels.NONE` for no
+--- notifications
+--- @field build_upon_default_config? boolean
+--- Default is true, when set the default config of detekt is used for any
+--- missing settings.
+--- @field file_pattern? string|string[]
+--- Default is `"*.kt"`, determines the file pattern(s) for which to run detekt.
+--- @field detekt_exec string?
+--- Default is `"detekt"` can be used to overwrite the executable for detekt.
 
---- @class detekt.cmd_for_buf
+--- @class (exact) detekt.cmd_for_buf
 --- @field cmd string[]
 --- @field tmp_file string
 --- @field bufnr integer
@@ -20,12 +33,12 @@ local M = {
         --- @type { [integer]: detekt.cmd_for_buf}
         cmd_cache = {}
     },
+    --- @type detekt.config
     _settings = {
         config_names = { "detekt.yaml", "detekt.yml" },
         baseline_names = nil,
         log_level = vim.log.levels.INFO,
         build_upon_default_config = true,
-        --- @type string|string[]
         file_pattern = { "*.kt" },
         detekt_exec = "detekt",
     }
@@ -60,7 +73,7 @@ local function generate_cmd(bufnr)
             M._settings.detekt_exec,
             "-r",
             "sarif:" .. tmp_file,
-            "includes",
+            "--includes",
             bufname
         },
         tmp_file = tmp_file,
@@ -81,7 +94,6 @@ local function generate_cmd(bufnr)
         return nil, "Config file not found, searched for: " .. table.concat(M._settings.config_names, ", ")
     end
 
-    -- Check for warnings
     --- @type string[]
     local warnings = {}
     if M._settings.baseline_names ~= nil then
@@ -154,7 +166,7 @@ local function run_detekt()
     notify("Validating " .. cmd.bufname, vim.log.levels.INFO)
     vim.system(cmd.cmd, { text = true }, function(out)
         if out.code == 3 then
-            notify("Config invalid" .. out.stderr, vim.log.levels.ERROR)
+            notify("Config invalid " .. out.stderr, vim.log.levels.ERROR)
             return
         end
 
@@ -178,14 +190,19 @@ local function run_detekt()
     end)
 end
 
---- @param tbl detekt.config
-M.setup = function(tbl)
-    M._settings.config_names = tbl.config_names or M._settings.config_names
-    M._settings.baseline_names = tbl.baseline_names or M._settings.baseline_names
-    M._settings.log_level = tbl.log_level or M._settings.log_level
-    M._settings.build_upon_default_config = tbl.build_upon_default_config or M._settings.build_upon_default_config
-    M._settings.file_pattern = tbl.file_pattern or M._settings.file_pattern
-    M._settings.detekt_exec = tbl.detekt_exec or M._settings.detekt_exec
+--- Will setup detekt to listen to any changes in `*.kt` files (_or other files
+--- when the `config.file_pattern` value is set_). When such a file is opened or
+--- changed `detekt` will trigger and fill the diagnostics list for any found
+--- issue.
+--- @param config detekt.config
+M.setup = function(config)
+    config = config or {}
+    M._settings.config_names = config.config_names or M._settings.config_names
+    M._settings.baseline_names = config.baseline_names or M._settings.baseline_names
+    M._settings.log_level = config.log_level or M._settings.log_level
+    M._settings.build_upon_default_config = config.build_upon_default_config or M._settings.build_upon_default_config
+    M._settings.file_pattern = config.file_pattern or M._settings.file_pattern
+    M._settings.detekt_exec = config.detekt_exec or M._settings.detekt_exec
 
     vim.api.nvim_create_autocmd(
         { "BufAdd", "BufWritePost" },
