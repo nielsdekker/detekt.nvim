@@ -63,9 +63,13 @@ local function generate_cmd(bufnr)
         return M._internal.cmd_cache[bufnr], nil
     end
 
-    local config_file = vim.fs.find(M._settings.config_names, { upward = true, type = "file" })[1]
     local bufname = vim.api.nvim_buf_get_name(bufnr)
     local tmp_file = os.tmpname()
+    local config_file = vim.fs.find(M._settings.config_names, {
+        upward = true,
+        type = "file",
+        path = vim.fs.dirname(bufname),
+    })[1]
 
     --- @type detekt.cmd_for_buf
     local cmd_for_buf = {
@@ -91,13 +95,19 @@ local function generate_cmd(bufnr)
         table.insert(cmd_for_buf.cmd, config_file)
     else
         -- Breaking, refuse to run without a config file
-        return nil, "Config file not found, searched for: " .. table.concat(M._settings.config_names, ", ")
+        return nil,
+            "Config file not found, searched for: {" ..
+            table.concat(M._settings.config_names, ", ") .. "}\nStarted at: " .. vim.fs.dirname(bufname)
     end
 
     --- @type string[]
     local warnings = {}
     if M._settings.baseline_names ~= nil then
-        local baseline_file = vim.fs.find(M._settings.baseline_names, { upward = true, type = "file" })[1]
+        local baseline_file = vim.fs.find(M._settings.baseline_names, {
+            upward = true,
+            type = "file",
+            path = vim.fs.dirname(bufname)
+        })[1]
         if baseline_file == nil then
             -- Baseline setup but file not found, this is not necessarily
             -- breaking but should result in a warning
