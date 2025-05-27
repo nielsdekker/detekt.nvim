@@ -24,6 +24,7 @@
 --- @field tmp_file string
 --- @field bufnr integer
 --- @field bufname string
+--- @field config_file string
 
 local M = {
     _internal = {
@@ -82,8 +83,10 @@ local function generate_cmd(bufnr)
         },
         tmp_file = tmp_file,
         bufnr = bufnr,
-        bufname = bufname
+        bufname = bufname,
+        config_file = config_file,
     }
+
 
     if M._settings.build_upon_default_config == true then
         table.insert(cmd_for_buf.cmd, "--build-upon-default-config")
@@ -173,8 +176,14 @@ local function run_detekt()
         notify(cmd_err, vim.log.levels.WARN)
     end
 
-    notify("Validating " .. cmd.bufname, vim.log.levels.INFO)
-    vim.system(cmd.cmd, { text = true }, function(out)
+    notify("Validating " .. cmd.bufname, vim.log.levels.DEBUG)
+    vim.system(cmd.cmd, {
+        text = true,
+        -- Run detekt from the directory of the file, this is done cause detekt
+        -- has this weird issue where it doesn't find any issues if the command
+        -- is ran from that does not contain the path to the config.
+        cwd = vim.fs.dirname(cmd.config_file),
+    }, function(out)
         if out.code == 3 then
             notify("Config invalid " .. out.stderr, vim.log.levels.ERROR)
             return
