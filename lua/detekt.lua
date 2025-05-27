@@ -186,6 +186,9 @@ local function run_detekt()
             return
         end
 
+        -- Clean up the temp file
+        os.remove(cmd.tmp_file)
+
         local diagnostics_len = vim.tbl_count(diagnostics)
 
         vim.schedule(function()
